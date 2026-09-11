@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
-out=search_traffic_336_noexpert_fixed96_r2_lr5e4
+out="${TD_FINETUNE_ROOT:-search_traffic_336_noexpert_fixed96_r2_lr5e4}"
 mkdir -p "$out"
 pre="${PRETRAINED_MODEL:-imported_checkpoints/traffic_noexpert_20260831.pth}"
 if [ ! -f "$pre" ]; then echo "Missing historical checkpoint: $pre" >&2; exit 2; fi

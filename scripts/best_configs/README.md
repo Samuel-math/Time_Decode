@@ -10,9 +10,9 @@ Configurations are grouped by dataset and forecast horizon. All retained forecas
 | ETTh2 | `scripts/etth2_best.sh` | Recovered full-pipeline candidate; 96 includes fresh base fine-tuning before residual training; numerical reproduction pending |
 | Weather | `scripts/weather_best.sh` | Recovered full-pipeline candidate; fresh rerun pending, see weather/PROVENANCE.md |
 | Electricity | `scripts/ECL_best.sh` | All four complete scratch chains recovered from original CB/PRE/FT evidence; numerical reproduction pending |
-| Traffic | `scripts/traffic_best.sh` | Historical no-expert checkpoint-based fine-tuning parameters; original pretraining provenance pending |
+| Traffic | `scripts/traffic_best.sh` | Original CB/PRE args recovered and tokenizer weights matched; all four scratch chains assembled, numerical reproduction pending |
 
-Use `HORIZONS="96 192"` to select horizons. For checkpoint-dependent entries, explicitly set `TD_STAGE=finetune`; the default refuses to claim or run an incomplete from-scratch recipe. Keep the required checkpoint at its recorded relative path, or use `PRETRAINED_MODEL` where supported. This is not checkpoint download automation.
+Use `HORIZONS="96 192"` to select horizons. Dataset best entries train from scratch and do not require historical checkpoints. Retained per-horizon fine-tuning helpers accept `PRETRAINED_MODEL`, but these helpers alone are not the full pipeline.
 
 Example full-pipeline candidate:
 
@@ -20,10 +20,10 @@ Example full-pipeline candidate:
 HORIZONS=96 bash scripts/etth1_best.sh
 ```
 
-Example historical checkpoint-based fine-tuning:
+Example Traffic scratch training:
 
 ```bash
-TD_STAGE=finetune HORIZONS=720 bash scripts/traffic_best.sh
+HORIZONS=720 bash scripts/traffic_best.sh
 ```
 
 No configuration in this commit is certified to reproduce the historical test metrics from scratch. Evaluation will record actual differences; passing requires both reported metrics to match to six decimal places. Original weights and failed attempts must be retained separately. These scripts may train for many epochs; syntax validation alone is not a training or reproducibility test.
