@@ -93,6 +93,13 @@ SOFT_NEIGHBOR_K="${SOFT_NEIGHBOR_K:-0}"
 SOFT_NEIGHBOR_ALPHA="${SOFT_NEIGHBOR_ALPHA:-0.25}"
 SOFT_NEIGHBOR_TAU="${SOFT_NEIGHBOR_TAU:-0.3}"
 USE_RAW_INPUT="${USE_RAW_INPUT:-0}"
+USE_GROUP_CHANNEL_EXPERTS="${USE_GROUP_CHANNEL_EXPERTS:-0}"
+GROUP_EXPERT_COUNT="${GROUP_EXPERT_COUNT:-2}"
+GROUP_EXPERT_DIM="${GROUP_EXPERT_DIM:-32}"
+GROUP_EXPERT_DROPOUT="${GROUP_EXPERT_DROPOUT:-0.1}"
+GROUP_EXPERT_TEMPERATURE="${GROUP_EXPERT_TEMPERATURE:-1.0}"
+GROUP_EXPERT_TOPK="${GROUP_EXPERT_TOPK:-0}"
+GROUP_EXPERT_GATE_INIT="${GROUP_EXPERT_GATE_INIT:--2.0}"
 
 # Finetune
 FINETUNE_CONTEXT_POINTS="${FINETUNE_CONTEXT_POINTS:-192}"
@@ -471,6 +478,11 @@ for ((GROUP_ID=0; GROUP_ID<NUM_GROUPS; GROUP_ID++)); do
         --rq_layer_weights ${RQ_LAYER_WEIGHTS} \
         --soft_neighbor_k '${SOFT_NEIGHBOR_K}' --soft_neighbor_alpha '${SOFT_NEIGHBOR_ALPHA}' \
         --soft_neighbor_tau '${SOFT_NEIGHBOR_TAU}' \
+        --use_group_channel_experts '${USE_GROUP_CHANNEL_EXPERTS}' \
+        --group_expert_count '${GROUP_EXPERT_COUNT}' --group_expert_dim '${GROUP_EXPERT_DIM}' \
+        --group_expert_dropout '${GROUP_EXPERT_DROPOUT}' \
+        --group_expert_temperature '${GROUP_EXPERT_TEMPERATURE}' \
+        --group_expert_topk '${GROUP_EXPERT_TOPK}' --group_expert_gate_init '${GROUP_EXPERT_GATE_INIT}' \
         --n_epochs '${PRETRAIN_EPOCHS}' --lr '${PRETRAIN_LR}' --weight_decay '${WEIGHT_DECAY}' \
         --revin '${REVIN}' --vq_weight 0.0 --recon_weight 0.0 \
         ${CHANNEL_ARGS} \
@@ -527,6 +539,11 @@ for TP_IDX in "${!TARGET_POINTS_LIST[@]}"; do
             --unfreeze_decoder '${UNFREEZE_DECODER}' \
             --decoder_lr_ratio '${DECODER_LR_RATIO}' \
             --decoder_wd_ratio '${DECODER_WD_RATIO}' \
+            --use_group_channel_experts '${USE_GROUP_CHANNEL_EXPERTS}' \
+            --group_expert_count '${GROUP_EXPERT_COUNT}' --group_expert_dim '${GROUP_EXPERT_DIM}' \
+            --group_expert_dropout '${GROUP_EXPERT_DROPOUT}' \
+            --group_expert_temperature '${GROUP_EXPERT_TEMPERATURE}' \
+            --group_expert_topk '${GROUP_EXPERT_TOPK}' --group_expert_gate_init '${GROUP_EXPERT_GATE_INIT}' \
             --ar_step_size '${CURRENT_FORECAST_STEP_SIZE}' --pred_len '${CURRENT_FORECAST_PRED_LEN}' \
             ${CHANNEL_ARGS} \
             --save_path '${FINETUNE_SAVE_PATH}' \

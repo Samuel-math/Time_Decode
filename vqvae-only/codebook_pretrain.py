@@ -872,6 +872,8 @@ def main():
     orth_warmup = int(getattr(args, 'orth_warmup_epochs', 10))
     # 若启用 L_orth，则等 warmup 完成后再保存/早停；否则保留原来的 epoch>=5 行为。
     save_start_epoch = orth_start + orth_warmup if orth_weight > 0 else 5
+    if os.environ.get('TD_CB_SAVE_START') is not None:
+        save_start_epoch = int(os.environ['TD_CB_SAVE_START'])
     
     print(f'\n开始码本预训练，共 {args.n_epochs} 个 epoch (早停: {early_stop_patience} epochs)')
     print('=' * 80)

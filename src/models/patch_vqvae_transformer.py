@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import os
 
 try:
     from .vqvae import build_encoder, build_decoder
@@ -942,6 +943,150 @@ class ChannelSummaryAdapterBackbone(nn.Module):
         return h_grid.permute(0, 2, 1, 3).reshape(batch_size * n_channels, num_patches, code_dim)
 
 
+class MultiScaleResidualRefiner(nn.Module):
+    """Lightweight continuous correction for VQ forecasting errors.
+
+    Parameter-free moving-average filters expose several temporal scales.  A
+    learned per-channel convex combination is projected from context to horizon
+    by one temporal map shared across channels, keeping growth independent of C.
+    """
+    def __init__(self, context_len, target_len, n_channels, kernels=(3, 12, 24),
+                 gate_init=-2.0, dropout=0.0, mode='forecast_smooth'):
+        super().__init__()
+        self.context_len = int(context_len)
+        self.target_len = int(target_len)
+        self.n_channels = int(n_channels)
+        self.mode = str(mode)
+        if isinstance(kernels, str):
+            kernels = [int(k) for k in kernels.split(',') if k.strip()]
+        self.kernels = tuple(max(1, int(k)) for k in kernels)
+        # raw signal, high-frequency residual at every scale, and slow trend
+        self.n_scales = (len(self.kernels) if self.mode == 'forecast_smooth'
+                         else 2 + len(self.kernels))
+        self.scale_logits = nn.Parameter(torch.zeros(self.n_channels, self.n_scales))
+        self.temporal_projection = None
+        if self.mode != 'forecast_smooth':
+            self.temporal_projection = nn.Linear(self.context_len, self.target_len)
+            nn.init.normal_(self.temporal_projection.weight, std=0.005)
+            nn.init.zeros_(self.temporal_projection.bias)
+        self.dropout = nn.Dropout(float(dropout))
+        self.channel_gate_logits = nn.Parameter(
+            torch.full((self.n_channels,), float(gate_init))
+        )
+        self.scale_delta = nn.Parameter(torch.zeros(self.n_channels))
+        self.bias = nn.Parameter(torch.zeros(self.n_channels))
+        self.last_correction = None
+
+    @staticmethod
+    def _moving_average(x, kernel):
+        # x: [B,C,T], replicate padding preserves length for odd/even kernels.
+        left = (kernel - 1) // 2
+        right = kernel // 2
+        padded = F.pad(x, (left, right), mode='replicate')
+        return F.avg_pool1d(padded, kernel_size=kernel, stride=1)
+
+    def forward(self, context, base_forecast):
+        if self.mode == 'forecast_smooth':
+            base = base_forecast.transpose(1, 2)  # [B,C,H]
+            smooth = [self._moving_average(base, k) for k in self.kernels]
+            deltas = torch.stack([s-base for s in smooth], dim=2)
+            weights = torch.softmax(self.scale_logits, dim=-1).view(
+                1, self.n_channels, self.n_scales, 1
+            )
+            correction = (deltas * weights).sum(dim=2).transpose(1, 2)
+            gate = torch.sigmoid(self.channel_gate_logits).view(1, 1, self.n_channels)
+            scale = 1.0 + 0.1 * torch.tanh(self.scale_delta).view(1, 1, self.n_channels)
+            bias = self.bias.view(1, 1, self.n_channels)
+            correction = gate * correction
+            self.last_correction = correction
+            return base_forecast * scale + bias + correction
+        if context.shape[1] < self.context_len:
+            raise ValueError(
+                f"Residual refiner needs {self.context_len} context points, "
+                f"got {context.shape[1]}"
+            )
+        x = context[:, -self.context_len:, :].transpose(1, 2)  # [B,C,T]
+        smooth = [self._moving_average(x, k) for k in self.kernels]
+        features = [x] + [x-s for s in smooth] + [smooth[-1]]
+        stacked = torch.stack(features, dim=2)  # [B,C,S,T]
+        weights = torch.softmax(self.scale_logits, dim=-1).view(
+            1, self.n_channels, self.n_scales, 1
+        )
+        mixed = (stacked * weights).sum(dim=2)
+        correction = self.temporal_projection(self.dropout(mixed)).transpose(1, 2)
+        gate = torch.sigmoid(self.channel_gate_logits).view(1, 1, self.n_channels)
+        correction = gate * correction
+        self.last_correction = correction
+        return base_forecast + correction
+
+
+class GroupedChannelExpertAdapter(nn.Module):
+    """Fixed-size bank of experts that jointly models learned channel groups.
+
+    The router is channel-to-expert (not sample-to-model), so every expert pools
+    information from multiple channels.  The shared temporal backbone is run
+    once; experts are lightweight residual bottleneck adapters.
+    """
+    def __init__(self, code_dim, n_channels, n_experts=2, bottleneck_dim=32,
+                 dropout=0.1, temperature=1.0, topk=0, gate_init=-2.0):
+        super().__init__()
+        if n_channels is None or int(n_channels) < 2:
+            raise ValueError("GroupedChannelExpertAdapter requires n_channels >= 2")
+        self.n_channels = int(n_channels)
+        self.n_experts = max(1, min(int(n_experts), self.n_channels))
+        self.temperature = float(temperature)
+        self.topk = int(topk)
+        # Small deterministic symmetry breaking is controlled by the run seed.
+        self.router_logits = nn.Parameter(torch.empty(self.n_channels, self.n_experts))
+        nn.init.normal_(self.router_logits, std=0.02)
+        self.pre_norm = nn.LayerNorm(code_dim)
+        self.experts = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(code_dim, int(bottleneck_dim)),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(int(bottleneck_dim), code_dim),
+                nn.Dropout(dropout),
+            ) for _ in range(self.n_experts)
+        ])
+        # Per-channel gates let the base model remain the stable initialization.
+        self.channel_gate_logits = nn.Parameter(
+            torch.full((self.n_channels,), float(gate_init))
+        )
+
+    def routing_weights(self):
+        weights = torch.softmax(
+            self.router_logits / max(self.temperature, 1e-4), dim=-1
+        )
+        if 0 < self.topk < self.n_experts:
+            _, idx = torch.topk(weights, self.topk, dim=-1)
+            mask = torch.zeros_like(weights).scatter_(-1, idx, 1.0)
+            weights = weights * mask
+            weights = weights / weights.sum(dim=-1, keepdim=True).clamp_min(1e-8)
+        return weights
+
+    def forward(self, h_flat, batch_size, n_channels):
+        if n_channels != self.n_channels:
+            raise ValueError(
+                f"Expert configured for {self.n_channels} channels, got {n_channels}"
+            )
+        _, patches, dim = h_flat.shape
+        h = h_flat.reshape(batch_size, n_channels, patches, dim).permute(0, 2, 1, 3)
+        normalized = self.pre_norm(h)
+        route = self.routing_weights()  # [C, E]
+        denom = route.sum(dim=0).clamp_min(1e-6)
+        pooled = torch.einsum('ce,btcd->bted', route, normalized)
+        pooled = pooled / denom.view(1, 1, self.n_experts, 1)
+        expert_values = torch.stack(
+            [expert(pooled[:, :, e, :]) for e, expert in enumerate(self.experts)],
+            dim=2,
+        )
+        update = torch.einsum('ce,bted->btcd', route, expert_values)
+        gate = torch.sigmoid(self.channel_gate_logits).view(1, 1, n_channels, 1)
+        h = h + gate * update
+        return h.permute(0, 2, 1, 3).reshape(batch_size*n_channels, patches, dim)
+
+
 def build_temporal_backbone(config, code_dim):
     """Build the temporal backbone used by NTP/finetune.
 
@@ -1089,6 +1234,33 @@ class PatchVQVAETransformer(nn.Module):
         # Temporal backbone (默认保持旧 CausalTransformer，checkpoint key 不变)
         self.transformer = build_temporal_backbone(config, self.code_dim)
 
+        self.use_group_channel_experts = bool(config.get('use_group_channel_experts', False))
+        self.group_channel_experts = None
+        if self.use_group_channel_experts:
+            self.group_channel_experts = GroupedChannelExpertAdapter(
+                self.code_dim,
+                n_channels=n_channels,
+                n_experts=config.get('group_expert_count', 2),
+                bottleneck_dim=config.get('group_expert_dim', 32),
+                dropout=config.get('group_expert_dropout', self.dropout),
+                temperature=config.get('group_expert_temperature', 1.0),
+                topk=config.get('group_expert_topk', 0),
+                gate_init=config.get('group_expert_gate_init', -2.0),
+            )
+
+        self.use_multiscale_residual = bool(config.get('use_multiscale_residual', False))
+        self.multiscale_residual = None
+        if self.use_multiscale_residual:
+            self.multiscale_residual = MultiScaleResidualRefiner(
+                context_len=config.get('residual_context_len'),
+                target_len=config.get('residual_target_len'),
+                n_channels=n_channels,
+                kernels=config.get('residual_kernels', '3,12,24'),
+                gate_init=config.get('residual_gate_init', -2.0),
+                dropout=config.get('residual_dropout', 0.0),
+                mode=config.get('residual_mode', 'forecast_smooth'),
+            )
+
         # 每层 RVQ 独立一个预测头；n_rq_layers=1 时等价于原来的 output_head
         self.output_heads = nn.ModuleList([
             nn.Linear(self.code_dim, self.codebook_size) for _ in range(self.n_rq_layers)
@@ -1116,8 +1288,12 @@ class PatchVQVAETransformer(nn.Module):
     def _run_temporal_backbone(self, x_flat, batch_size, n_channels):
         """Run temporal backbone with a stable [B*C, P, D] external contract."""
         if getattr(self.transformer, 'use_channel_grid', False):
-            return self.transformer(x_flat, batch_size, n_channels)
-        return self.transformer(x_flat)
+            h = self.transformer(x_flat, batch_size, n_channels)
+        else:
+            h = self.transformer(x_flat)
+        if self.group_channel_experts is not None:
+            h = self.group_channel_experts(h, batch_size, n_channels)
+        return h
     
     def _get_vq(self, c: int):
         """返回通道 c 对应的 VQ 模块（per_channel_codebook=True 时每通道独立，否则共享）"""
@@ -1125,7 +1301,7 @@ class PatchVQVAETransformer(nn.Module):
 
     @property
     def uses_frequency_codebooks(self):
-        return self.n_rq_layers == 2
+        return self.n_rq_layers == 2 and os.environ.get("TD_ABLATION") != "rqvae"
 
     def _split_low_high(self, x_c):
         """固定 moving-average 低通 + 残差高频，不引入额外参数。"""
@@ -1310,6 +1486,7 @@ class PatchVQVAETransformer(nn.Module):
         #   target   = full_indices[:, s*M : s*M + N]
         # 模型在零输入位置、仅凭 causal 上下文预测未来 N 个 token。
         all_logits, all_target_indices = [], []
+        patch_value_losses = []
         code_dim_inner = seq_full.shape[2]
 
         for stage in range(1, max_stages + 1):
@@ -1337,6 +1514,14 @@ class PatchVQVAETransformer(nn.Module):
                 logits_layers.append(logits_l)
                 tgt_layers.append(target_indices_stage[:, :, :, l])              # [B, N, C]
 
+            if os.environ.get("TD_ABLATION") == "patch_reconstruction":
+                codes = []
+                for l, logits in enumerate(logits_layers):
+                    weights = self.vq.layers[l].embedding.weight
+                    codes.append(torch.softmax(logits, dim=-1) @ weights)
+                reconstructed = self.decode_from_codes(sum(codes))
+                raw_target = x_full[:, target_start*self.patch_size:target_end*self.patch_size]
+                patch_value_losses.append(F.mse_loss(reconstructed, raw_target))
             all_logits.append(logits_layers)
             all_target_indices.append(tgt_layers)
 
@@ -1352,6 +1537,8 @@ class PatchVQVAETransformer(nn.Module):
         else:
             recon_loss = x_full.new_tensor(0.0)
 
+        if patch_value_losses:
+            recon_loss = torch.stack(patch_value_losses).mean()
         return all_logits, all_target_indices, vq_loss_full, recon_loss
     
     def forward_finetune(self, x, target_len, step_size=None, use_raw_input=False,
@@ -1542,6 +1729,8 @@ class PatchVQVAETransformer(nn.Module):
                     p = abs_start + offset
                     if p >= num_pred_patches:
                         break
+                    if os.environ.get("TD_ABLATION") == "no_cpc" and p in pos_code_sum:
+                        continue  # earliest code only; preserve rollout stride and feedback
                     rank = offset // step_size
                     w    = gate[rank]                                # scalar (learnable)
                     logits_at_p = [
@@ -1595,6 +1784,13 @@ class PatchVQVAETransformer(nn.Module):
         # 解码（优化后的批量解码）
         pred = self.decode_from_codes(pred_codes)  # [B, num_pred_patches*patch_size, C]
         pred = pred[:, :target_len, :]             # [B, target_len, C]
+        if self.multiscale_residual is not None:
+            if target_len != self.multiscale_residual.target_len:
+                raise ValueError(
+                    f"Residual refiner configured for horizon "
+                    f"{self.multiscale_residual.target_len}, got {target_len}"
+                )
+            pred = self.multiscale_residual(x, pred)
 
         # 确保输出长度与目标长度一致
         assert pred.shape[1] == target_len, f"预测长度 {pred.shape[1]} 与目标长度 {target_len} 不匹配"
@@ -1875,6 +2071,13 @@ def get_model_config(args):
         'timefilter_attn_heads': getattr(args, 'timefilter_attn_heads', None),
         'channel_summary_window': int(getattr(args, 'channel_summary_window', 4)),
         'channel_summary_gate_init': float(getattr(args, 'channel_summary_gate_init', -4.0)),
+        'use_group_channel_experts': bool(getattr(args, 'use_group_channel_experts', 0)),
+        'group_expert_count': int(getattr(args, 'group_expert_count', 2)),
+        'group_expert_dim': int(getattr(args, 'group_expert_dim', 32)),
+        'group_expert_dropout': float(getattr(args, 'group_expert_dropout', 0.1)),
+        'group_expert_temperature': float(getattr(args, 'group_expert_temperature', 1.0)),
+        'group_expert_topk': int(getattr(args, 'group_expert_topk', 0)),
+        'group_expert_gate_init': float(getattr(args, 'group_expert_gate_init', -2.0)),
         'commitment_cost': args.commitment_cost,
         'codebook_ema': bool(args.codebook_ema),
         'ema_decay': args.ema_decay,

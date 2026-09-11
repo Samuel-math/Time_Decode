@@ -9,6 +9,7 @@ Patch VQVAE + Transformer 渐进式预训练公共逻辑
 """
 
 import argparse
+import os
 import json
 import random
 from pathlib import Path
@@ -91,6 +92,14 @@ def build_arg_parser():
                    help='channel_summary_adapter 使用的历史 patch 窗口 W')
     p.add_argument('--channel_summary_gate_init', type=float, default=-4.0,
                    help='channel_summary_adapter gate 初始化值；-4 约等于 0.018')
+    p.add_argument('--use_group_channel_experts', type=int, default=0,
+                   help='在NTP预训练阶段启用多通道分组专家')
+    p.add_argument('--group_expert_count', type=int, default=2)
+    p.add_argument('--group_expert_dim', type=int, default=32)
+    p.add_argument('--group_expert_dropout', type=float, default=0.1)
+    p.add_argument('--group_expert_temperature', type=float, default=1.0)
+    p.add_argument('--group_expert_topk', type=int, default=0)
+    p.add_argument('--group_expert_gate_init', type=float, default=-2.0)
     p.add_argument('--commitment_cost', type=float, default=0.25)
     p.add_argument('--codebook_ema', type=int, default=1)
     p.add_argument('--disable_ema_update', type=int, default=1,
@@ -581,7 +590,7 @@ def train_epoch(model, dataloader, optimizer, scheduler, revin, args, device, tr
             neighbor_tables=soft_neighbor_tables,
         )
 
-        loss = pred_loss + vq_w * vq_loss + recon_w * recon_loss
+        loss = recon_loss if os.environ.get("TD_ABLATION") == "patch_reconstruction" else pred_loss + vq_w * vq_loss + recon_w * recon_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -700,7 +709,7 @@ def validate_epoch(model, dataloader, revin, args, device):
                 soft_neighbor_tau=soft_neighbor_tau,
                 neighbor_tables=soft_neighbor_tables,
             )
-            loss = pred_loss + vq_w * vq_loss + recon_w * recon_loss
+            loss = recon_loss if os.environ.get("TD_ABLATION") == "patch_reconstruction" else pred_loss + vq_w * vq_loss + recon_w * recon_loss
 
             totals['loss']       += loss.item()
             totals['pred_loss']  += pred_loss.item()
@@ -953,6 +962,12 @@ def run_pretrain():
     if args.disable_ema_update:
         _disable_ema(model)
 
+    if os.environ.get("TD_ABLATION") == "no_pretrain":
+        torch.save({'model_state_dict':model.state_dict(), 'config':config,
+                    'args':vars(args), 'epoch':-1, 'ablation':'no_pretrain'},
+                   save_dir / f'{model_name}.pth')
+        print('NO_PRETRAIN: tokenizer loaded, random temporal model saved; zero optimizer steps')
+        return
     total_p = sum(p.numel() for p in model.parameters())
     train_p = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'\n参数: 总计 {total_p:,} | 可训练 {train_p:,} | 冻结 {total_p - train_p:,}')

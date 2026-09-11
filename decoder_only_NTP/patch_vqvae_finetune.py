@@ -106,13 +106,24 @@ def parse_args():
     parser.add_argument('--amp', type=int, default=1, help='是否启用混合精度')
     parser.add_argument('--run_id', type=int, default=None, help='运行ID（用于多次运行同一参数组合）')
     parser.add_argument('--seed', type=int, default=42, help='随机种子（默认 42）')
+    parser.add_argument('--save_test_diagnostics', type=int, default=0,
+                        help='1 = 保存原始test预测/标签及逐通道、分预测区段误差；仅诊断，不改变训练或预测')
 
     # 训练 loss 类型（验证/测试始终用 MSE 报告，保持与 benchmark 可比）
     parser.add_argument('--train_loss', type=str, default='mse',
-                        choices=['mse', 'huber', 'smooth_l1'],
-                        help='训练反向传播使用的 loss 类型：mse | huber | smooth_l1')
+                        choices=['mse', 'huber', 'smooth_l1', 'mse_mae', 'channel_focal_mse'],
+                        help='训练反向传播 loss：mse | huber | smooth_l1 | mse_mae | channel_focal_mse')
     parser.add_argument('--huber_delta', type=float, default=1.0,
                         help='Huber / Smooth-L1 的 delta（beta）阈值。RevIN 空间建议 0.3~1.0')
+    parser.add_argument('--mae_weight', type=float, default=0.5,
+                        help='mse_mae loss 中 MAE 项的权重')
+    parser.add_argument('--channel_focal_gamma', type=float, default=0.5,
+                        help='channel_focal_mse的难通道强调指数；权重仅由当前训练batch误差生成并detach')
+    parser.add_argument('--channel_focal_max_weight', type=float, default=2.0,
+                        help='channel_focal_mse的通道权重上限，防止少数异常通道主导训练')
+    parser.add_argument('--selection_metric', type=str, default='mse',
+                        choices=['mse', 'mae', 'score'],
+                        help='仅依据validation选择checkpoint的指标')
 
     # Decoder 解冻（finetune 阶段做任务精调；不会改动预训练 checkpoint 文件）
     parser.add_argument('--unfreeze_decoder', type=int, default=0,
@@ -127,6 +138,29 @@ def parse_args():
     parser.add_argument('--use_gumbel_softmax', type=int, default=1, help='是否使用Gumbel-Softmax（1启用，0使用普通Softmax）')
     parser.add_argument('--gumbel_temperature', type=float, default=1.0, help='Gumbel-Softmax温度（越小越接近argmax）')
     parser.add_argument('--gumbel_hard', type=int, default=0, help='是否使用Straight-Through Gumbel（前向硬采样，反向软梯度）')
+    parser.add_argument('--use_group_channel_experts', type=int, default=0,
+                        help='启用端到端多通道分组专家适配器')
+    parser.add_argument('--group_expert_count', type=int, default=2,
+                        help='固定专家数量（不随通道数线性增长）')
+    parser.add_argument('--group_expert_dim', type=int, default=32,
+                        help='每个轻量专家的瓶颈维度')
+    parser.add_argument('--group_expert_dropout', type=float, default=0.1)
+    parser.add_argument('--group_expert_temperature', type=float, default=1.0)
+    parser.add_argument('--group_expert_topk', type=int, default=0,
+                        help='每通道路由到Top-k专家；0表示稠密软路由')
+    parser.add_argument('--group_expert_gate_init', type=float, default=-2.0)
+    parser.add_argument('--use_multiscale_residual', type=int, default=0,
+                        help='启用端到端多尺度连续残差修正头')
+    parser.add_argument('--residual_context_len', type=int, default=None,
+                        help='残差头使用的最近上下文长度；默认等于 context_points')
+    parser.add_argument('--residual_kernels', type=str, default='3,12,24',
+                        help='逗号分隔的无参数移动平均尺度')
+    parser.add_argument('--residual_gate_init', type=float, default=-2.0)
+    parser.add_argument('--residual_dropout', type=float, default=0.0)
+    parser.add_argument('--residual_mode', type=str, default='forecast_smooth',
+                        choices=['forecast_smooth', 'context_projection'])
+    parser.add_argument('--residual_only', type=int, default=0,
+                        help='1时冻结已有模型参数，仅训练结构内的残差修正头')
 
     # 仅用于展示/兼容命令行；实际 finetune 架构以 pretrained checkpoint config 为准
     parser.add_argument('--temporal_backbone', type=str, default=None,
@@ -239,6 +273,31 @@ def load_pretrained_model(checkpoint_path, device, n_channels=None, args=None):
         model_config['gumbel_temperature'] = getattr(args, 'gumbel_temperature', 1.0)
         model_config['gumbel_hard'] = bool(getattr(args, 'gumbel_hard', 0))
         print(f'Gumbel-Softmax配置: use={model_config["use_gumbel_softmax"]}, temp={model_config["gumbel_temperature"]}, hard={model_config["gumbel_hard"]}')
+        expert_keys = (
+            'use_group_channel_experts', 'group_expert_count', 'group_expert_dim',
+            'group_expert_dropout', 'group_expert_temperature',
+            'group_expert_topk', 'group_expert_gate_init',
+        )
+        for key in expert_keys:
+            model_config[key] = getattr(args, key)
+            # Persist architecture arguments in finetune checkpoints so their
+            # evaluation reconstruction is exact.
+            config[key] = getattr(args, key)
+        model_config['n_channels'] = n_channels
+        config['n_channels'] = n_channels
+        print('多通道专家配置:', {k: model_config[k] for k in expert_keys})
+        residual_values = {
+            'use_multiscale_residual': int(args.use_multiscale_residual),
+            'residual_context_len': int(args.residual_context_len or args.context_points),
+            'residual_target_len': int(args.target_points),
+            'residual_kernels': args.residual_kernels,
+            'residual_gate_init': float(args.residual_gate_init),
+            'residual_dropout': float(args.residual_dropout),
+            'residual_mode': args.residual_mode,
+        }
+        model_config.update(residual_values)
+        config.update(residual_values)
+        print('多尺度连续残差配置:', residual_values)
     
     # 创建模型（使用model_config，包含Gumbel-Softmax配置）
     model = PatchVQVAETransformer(model_config).to(device)
@@ -249,7 +308,25 @@ def load_pretrained_model(checkpoint_path, device, n_channels=None, args=None):
         print("✓ 预训练权重加载成功（strict=True）")
     except RuntimeError as e:
         print(f"警告: strict=True 加载失败，回退 strict=False: {e}")
-        missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
+        # ``strict=False`` still raises on tensors whose names match but
+        # shapes differ (for example when screening a different expert count
+        # or bottleneck width).  Keep every compatible pretrained tensor and
+        # deliberately re-initialize only the changed architecture tensors.
+        current_state = model.state_dict()
+        compatible_state = {
+            key: value for key, value in state_dict.items()
+            if key in current_state and current_state[key].shape == value.shape
+        }
+        skipped_shape_keys = [
+            key for key, value in state_dict.items()
+            if key in current_state and current_state[key].shape != value.shape
+        ]
+        missing_keys, unexpected_keys = model.load_state_dict(compatible_state, strict=False)
+        if skipped_shape_keys:
+            print(
+                f"警告: skipped shape-mismatched keys ({len(skipped_shape_keys)}): "
+                f"{skipped_shape_keys[:10]}"
+            )
         if missing_keys:
             print(
                 f"警告: missing keys ({len(missing_keys)}): {missing_keys[:10]}..."
@@ -306,6 +383,19 @@ def _compute_train_loss(pred, target, args):
         return F.huber_loss(pred_f, target, reduction='mean', delta=delta)
     if loss_type == 'smooth_l1':
         return F.smooth_l1_loss(pred_f, target, reduction='mean', beta=delta)
+    if loss_type == 'mse_mae':
+        return (F.mse_loss(pred_f, target, reduction='mean')
+                + float(args.mae_weight) * F.l1_loss(pred_f, target, reduction='mean'))
+    if loss_type == 'channel_focal_mse':
+        squared_error = (pred_f - target) ** 2
+        # Difficulty is estimated exclusively from the current training batch.
+        # Detaching weights prevents the model from gaming the weighting rule.
+        channel_difficulty = squared_error.detach().mean(dim=(0, 1))
+        normalized = channel_difficulty / channel_difficulty.mean().clamp_min(1e-8)
+        weights = normalized.pow(float(args.channel_focal_gamma))
+        weights = weights.clamp(max=float(args.channel_focal_max_weight))
+        weights = weights / weights.mean().clamp_min(1e-8)
+        return (squared_error * weights.view(1, 1, -1)).mean()
     return F.mse_loss(pred_f, target, reduction='mean')
 
 
@@ -534,6 +624,14 @@ def main():
     # 冻结 Encoder + VQ；根据 --unfreeze_decoder 决定 Decoder 是否参与 finetune
     unfreeze_dec = bool(getattr(args, 'unfreeze_decoder', 0))
     freeze_encoder_vq(model, unfreeze_decoder=unfreeze_dec)
+    if bool(getattr(args, 'residual_only', 0)):
+        if model.multiscale_residual is None:
+            raise ValueError('--residual_only=1 requires --use_multiscale_residual=1')
+        for parameter in model.parameters():
+            parameter.requires_grad = False
+        for parameter in model.multiscale_residual.parameters():
+            parameter.requires_grad = True
+        print('✓ Residual-only stage: 已冻结基础 Time-DeCode，仅训练内置残差头')
     if unfreeze_dec:
         print(f'✓ Decoder 已解冻（decoder_lr = main_lr × {args.decoder_lr_ratio}, '
               f'decoder_wd = main_wd × {args.decoder_wd_ratio}）')
@@ -689,7 +787,10 @@ def main():
         total_time = time.time() - start_time
         
         # 仅按验证集 MSE 选择最佳模型（checkpoint/早停都以 MSE 为准）。
-        is_best = (best_epoch is None) or (val_mse < best_val_mse)
+        selection_metric = getattr(args, 'selection_metric', 'mse')
+        current_selection = {'mse': val_mse, 'mae': val_mae, 'score': val_score}[selection_metric]
+        best_selection = {'mse': best_val_mse, 'mae': best_val_mae, 'score': best_val_score}[selection_metric]
+        is_best = (best_epoch is None) or (current_selection < best_selection)
         if is_best:
             best_val_mse = val_mse
             best_val_mae = val_mae
@@ -830,6 +931,36 @@ def main():
         'value': result_values,
     })
     results_df.to_csv(save_dir / f'{model_name}_results.csv', index=False)
+
+    if bool(getattr(args, 'save_test_diagnostics', 0)):
+        diagnostic_npz = save_dir / f'{model_name}_test_predictions.npz'
+        np.savez_compressed(diagnostic_npz, preds=preds, targets=targets)
+
+        squared_error = (preds - targets) ** 2
+        absolute_error = np.abs(preds - targets)
+        channel_df = pd.DataFrame({
+            'local_channel': np.arange(preds.shape[-1]),
+            'source_channel': (
+                [int(v) for v in args.channel_indices.split(',')]
+                if args.channel_indices else np.arange(preds.shape[-1])
+            ),
+            'mse': squared_error.mean(axis=(0, 1)),
+            'mae': absolute_error.mean(axis=(0, 1)),
+        })
+        channel_df.to_csv(save_dir / f'{model_name}_test_by_channel.csv', index=False)
+
+        segment_rows = []
+        for start in range(0, preds.shape[1], 96):
+            end = min(start + 96, preds.shape[1])
+            segment_rows.append({
+                'start': start,
+                'end': end,
+                'mse': squared_error[:, start:end].mean(),
+                'mae': absolute_error[:, start:end].mean(),
+            })
+        pd.DataFrame(segment_rows).to_csv(
+            save_dir / f'{model_name}_test_by_horizon_segment.csv', index=False)
+        print(f'测试诊断已保存: {diagnostic_npz}')
     
     # 保存训练历史 (基于epoch)
     history_df = pd.DataFrame({
