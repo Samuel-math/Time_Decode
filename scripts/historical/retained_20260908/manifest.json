@@ -1,0 +1,203 @@
+{
+  "source": "../outputs/td_best_20260911/git_bundle",
+  "byte_identical": true,
+  "bash_syntax_passed": true,
+  "files": [
+    {
+      "path": "original_A/run_electricity_focus.sh",
+      "sha256": "c89882862b87515ebb272849f25e67f6a2139c3a3ef4e99d856803f03934fd1b"
+    },
+    {
+      "path": "original_A/run_ettm2_expert_pretrain_fixed96.sh",
+      "sha256": "4cdbbeed85646889bcba08ae91712fccdd78789994b7610a0f2b6ad558e1bdbc"
+    },
+    {
+      "path": "original_A/run_ettm2_expert_pretrain_fixed96_r15.sh",
+      "sha256": "a82d4753c552b4cfe7b6a4bccb8f1969923b67de21414d3fddb5bb037a4d5ae4"
+    },
+    {
+      "path": "original_A/scripts/ECL_best.sh",
+      "sha256": "0c42e1994fad371ccf83eea85c48a1ac2f49f7e1ab661743210dc79443f04fb8"
+    },
+    {
+      "path": "original_A/scripts/apart/ECL_192.sh",
+      "sha256": "8b093c4ac4117d94885cbfccb5c7b098c30305fd25d4f007c469ecbca11a73e4"
+    },
+    {
+      "path": "original_A/scripts/apart/ECL_336.sh",
+      "sha256": "f59009cbd3ac4aa9e78aa2ede84a22f69b3c5e7549e02ad62814b01292eb2fbc"
+    },
+    {
+      "path": "original_A/scripts/apart/ECL_720.sh",
+      "sha256": "9d6a6ab22297cb47f3449f41d992ee6fe8d7a4085a4e554948736ef4ff0fda2c"
+    },
+    {
+      "path": "original_A/scripts/apart/ECL_96.sh",
+      "sha256": "0d50393af3269b9daf070d6329f8f9d5b0e59598783a752af0c7e98f56a40635"
+    },
+    {
+      "path": "original_A/scripts/apart/ettm2_192.sh",
+      "sha256": "f615ce3abf1fb4d7a2b2fe6447f7e290c6c91ef1a7490b3e8088d5313057e5ab"
+    },
+    {
+      "path": "original_A/scripts/apart/ettm2_336.sh",
+      "sha256": "59ca8672dd1e61787e3dfbd5c7bb7f62625c3dabc9f0acd80e57dd083146fa38"
+    },
+    {
+      "path": "original_A/scripts/apart/ettm2_720.sh",
+      "sha256": "46331710896cdf36c61ac93444fd4fc4625192445f7bbe3d33f0cbdf72742d0f"
+    },
+    {
+      "path": "original_A/scripts/apart/ettm2_96.sh",
+      "sha256": "cc85b49e2e99facb7ff95dbdc3a6acb318de6dbdf970e79731c2089766ba5aaf"
+    },
+    {
+      "path": "original_A/scripts/apart/traffic_192.sh",
+      "sha256": "21302c3628d0ffa302e62f427dffe8752d6463e8977f744f427679567c4f2cd2"
+    },
+    {
+      "path": "original_A/scripts/apart/traffic_336.sh",
+      "sha256": "13af14f4dcde9e2b71a77470b74ee873da999b8d4917150604cda1c2a5be9ad4"
+    },
+    {
+      "path": "original_A/scripts/apart/traffic_720.sh",
+      "sha256": "24d2358a36b54bf7a52a1118944b6349021c2388a344c2319d60cde91832ee2c"
+    },
+    {
+      "path": "original_A/scripts/apart/traffic_96.sh",
+      "sha256": "b0bde15053b03d1c43a55c2e2a9f41340d56d4bcd08e4b68f494f7ee6d395009"
+    },
+    {
+      "path": "original_A/scripts/apart/weather_192.sh",
+      "sha256": "44adbbca514e9e42745864715e5ea94428fbd65da71c2b9d8e5311508345586b"
+    },
+    {
+      "path": "original_A/scripts/apart/weather_336.sh",
+      "sha256": "54c99f4a064372a950e295385208c8693448d1e3b4c6464c8d22f4ea2399d8b4"
+    },
+    {
+      "path": "original_A/scripts/apart/weather_720.sh",
+      "sha256": "f768630375a24003d62a11dada857faa8257cbdc6e2b626bb782f63791becaa5"
+    },
+    {
+      "path": "original_A/scripts/apart/weather_96.sh",
+      "sha256": "41f41d153e031f2735d62d91fc04afc217c36465aa95e765a97383732964dbc1"
+    },
+    {
+      "path": "original_A/scripts/etth1_best.sh",
+      "sha256": "2a15a1159a5d1cf7a62866ef2ef79d2d58d12d8d794f19006446c776f673a244"
+    },
+    {
+      "path": "original_A/scripts/etth2_best.sh",
+      "sha256": "a8fe77e1222a80318b6a0be77b19d291cd46f3e17c400ebb038883548eeb7846"
+    },
+    {
+      "path": "original_A/scripts/etth2_sota_tuned.sh",
+      "sha256": "38a3b2813a60bf46872f4abcb1f865a6654d466802fc827c7cdb2f34298daf38"
+    },
+    {
+      "path": "original_A/scripts/ettm1_best.sh",
+      "sha256": "7ce37fd63acf579a510cffab56b2477e886222843b6b79c129308cadeed8a97e"
+    },
+    {
+      "path": "original_A/scripts/ettm2_best.sh",
+      "sha256": "c03882165962ec75979f13936f99cb54e49044ea67685b2a12943f95ba1926d5"
+    },
+    {
+      "path": "original_A/scripts/ettm2_sota_tuned.sh",
+      "sha256": "ebb25e4309d97c637ace2e01c3c5caf5ff5bde21ae27734a0559a1947b97a022"
+    },
+    {
+      "path": "original_A/scripts/run_electricity_336_fixed96_r2.sh",
+      "sha256": "1e38859e8f04999335b79c010bf5ea6ebc721fefd25a36a800f96f5315428a51"
+    },
+    {
+      "path": "original_A/scripts/run_electricity_720_fixed96_r4.sh",
+      "sha256": "b22502a1729c24cfc315e98cfa52c017f6f210d5b8ac28cd358d3940c03bad85"
+    },
+    {
+      "path": "original_A/scripts/run_electricity_720_fixed96_r5.sh",
+      "sha256": "8bdb929592e65a5751c80262c744b35975eb5e34b684d81781e0f12a7ed555b2"
+    },
+    {
+      "path": "original_A/scripts/run_electricity_720_fixed96_r6.sh",
+      "sha256": "e47becd6ea621d3bddd7195c8237e97726409ce46545673b5a7236101727e738"
+    },
+    {
+      "path": "original_A/scripts/run_electricity_96_fixed96_r3.sh",
+      "sha256": "d00389a56107368ab42427a19e1e18aa3545198defc1bcbb555cb82aed151acc"
+    },
+    {
+      "path": "original_A/scripts/run_traffic_192_noexpert_r2_lr6e4.sh",
+      "sha256": "f41ef06330b82fb8dff47f0b9011caaa9b43182bb3ed8423b698c2a2b99e0ba4"
+    },
+    {
+      "path": "original_A/scripts/run_traffic_720_noexpert_r1_lr6e4.sh",
+      "sha256": "05d69660ba3e15ec8b685f43cdf614e436297800dbd21ed0f882153d713ff90b"
+    },
+    {
+      "path": "original_A/scripts/traffic_best.sh",
+      "sha256": "5af4a391ba9d902416db3c9fd2d0204b8c4312e4652a56fd2a70a1299400100f"
+    },
+    {
+      "path": "original_A/scripts/weather_best.sh",
+      "sha256": "c4a4000a89f5a23f18880f221b0463a0fcdaee29acc9e9b0a810836a07ffe4f7"
+    },
+    {
+      "path": "original_B/scripts/ECL_best.sh",
+      "sha256": "0c42e1994fad371ccf83eea85c48a1ac2f49f7e1ab661743210dc79443f04fb8"
+    },
+    {
+      "path": "original_B/scripts/etth1_best.sh",
+      "sha256": "2a15a1159a5d1cf7a62866ef2ef79d2d58d12d8d794f19006446c776f673a244"
+    },
+    {
+      "path": "original_B/scripts/etth2_best.sh",
+      "sha256": "a8fe77e1222a80318b6a0be77b19d291cd46f3e17c400ebb038883548eeb7846"
+    },
+    {
+      "path": "original_B/scripts/ettm1_best.sh",
+      "sha256": "7ce37fd63acf579a510cffab56b2477e886222843b6b79c129308cadeed8a97e"
+    },
+    {
+      "path": "original_B/scripts/ettm2_best.sh",
+      "sha256": "c03882165962ec75979f13936f99cb54e49044ea67685b2a12943f95ba1926d5"
+    },
+    {
+      "path": "original_B/scripts/traffic_best.sh",
+      "sha256": "5af4a391ba9d902416db3c9fd2d0204b8c4312e4652a56fd2a70a1299400100f"
+    },
+    {
+      "path": "original_B/scripts/weather_best.sh",
+      "sha256": "c4a4000a89f5a23f18880f221b0463a0fcdaee29acc9e9b0a810836a07ffe4f7"
+    },
+    {
+      "path": "original_C/scripts/ECL_best.sh",
+      "sha256": "c607f61c0d9941ffcf0353fd048dfdc7bcee748d26135982e4a9e682ff82710e"
+    },
+    {
+      "path": "original_C/scripts/etth1_best.sh",
+      "sha256": "2a15a1159a5d1cf7a62866ef2ef79d2d58d12d8d794f19006446c776f673a244"
+    },
+    {
+      "path": "original_C/scripts/etth2_best.sh",
+      "sha256": "14e4ca48eceb140a8c1d3e29019616d71d79d0ab6c1a00017eec5ddb3dfec0f8"
+    },
+    {
+      "path": "original_C/scripts/ettm1_best.sh",
+      "sha256": "7ce37fd63acf579a510cffab56b2477e886222843b6b79c129308cadeed8a97e"
+    },
+    {
+      "path": "original_C/scripts/ettm2_best.sh",
+      "sha256": "c03882165962ec75979f13936f99cb54e49044ea67685b2a12943f95ba1926d5"
+    },
+    {
+      "path": "original_C/scripts/traffic_best.sh",
+      "sha256": "5af4a391ba9d902416db3c9fd2d0204b8c4312e4652a56fd2a70a1299400100f"
+    },
+    {
+      "path": "original_C/scripts/weather_best.sh",
+      "sha256": "c4a4000a89f5a23f18880f221b0463a0fcdaee29acc9e9b0a810836a07ffe4f7"
+    }
+  ]
+}
