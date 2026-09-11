@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
-root=search_etth2_336_robust_r1
+root="${TD_FINETUNE_ROOT:-search_etth2_336_robust_r1}"
 mkdir -p "$root"
 pre="${PRETRAINED_MODEL:-search_etth2_expert_pretrain_r1/e3d32/etth2/patch_vqvae_ps8_cb256_cd128_l3_in296_step3_model1_rvq2_grp0.pth}"
 if [ ! -f "$pre" ]; then echo "Missing historical checkpoint: $pre" >&2; exit 2; fi

@@ -7,8 +7,8 @@ Configurations are grouped by dataset and forecast horizon. All retained forecas
 | ETTm1 | `scripts/ettm1_best.sh` | Full-pipeline candidates; fresh-environment reproduction queued |
 | ETTm2 | `scripts/ettm2_best.sh` | Historical checkpoint-based fine-tuning parameters; complete pretraining provenance pending |
 | ETTh1 | `scripts/etth1_best.sh` | Full-pipeline candidates; 96 reproduction queued |
-| ETTh2 | `scripts/etth2_best.sh` | Historical checkpoint-based fine-tuning parameters; some runs also depend on a prior fine-tuned checkpoint |
-| Weather | `scripts/weather_best.sh` | Historical checkpoint-based fine-tuning parameters; complete pretraining provenance pending |
+| ETTh2 | `scripts/etth2_best.sh` | Recovered full-pipeline candidate; 96 includes fresh base fine-tuning before residual training; numerical reproduction pending |
+| Weather | `scripts/weather_best.sh` | Recovered full-pipeline candidate; fresh rerun pending, see weather/PROVENANCE.md |
 | Electricity | `scripts/ECL_best.sh` | 96/336/720 fine-tuning parameters retained; 192 effective configuration still incomplete |
 | Traffic | `scripts/traffic_best.sh` | Historical no-expert checkpoint-based fine-tuning parameters; original pretraining provenance pending |
 

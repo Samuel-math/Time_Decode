@@ -7,7 +7,7 @@ cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 export PYTHONUNBUFFERED=1
 tag=e4d32; experts=4; dim=32; ctx=96
 export HORIZONS=96
-root=search_weather_expert_fixed96_r6_${tag}_ctx${ctx}
+root="${TD_FINETUNE_ROOT:-search_weather_expert_fixed96_r6_${tag}_ctx${ctx}}"
 mkdir -p "$root"
 pre="${PRETRAINED_MODEL:-search_weather_expert_pretrain_ctx${ctx}_r5/$tag/weather/patch_vqvae_ps8_cb512_cd128_l3_in${ctx}_step6_model1_rvq2_dlp_timefilterlitek8_snk20a0p3t0p5_grp0.pth}"
 if [ ! -f "$pre" ]; then echo "Missing historical checkpoint: $pre" >&2; exit 2; fi

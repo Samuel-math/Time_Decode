@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
-root=search_weather_sparse_experts_fixed96_r21
+root="${TD_FINETUNE_ROOT:-search_weather_sparse_experts_fixed96_r21}"
 mkdir -p "$root"
 pre="${PRETRAINED_MODEL:-search_weather_expert_pretrain_ctx672_r5/e4d32/weather/patch_vqvae_ps8_cb512_cd128_l3_in672_step6_model1_rvq2_dlp_timefilterlitek8_snk20a0p3t0p5_grp0.pth}"
 if [ ! -f "$pre" ]; then echo "Missing historical checkpoint: $pre" >&2; exit 2; fi
