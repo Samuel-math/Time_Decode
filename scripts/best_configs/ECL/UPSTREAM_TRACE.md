@@ -1,6 +1,9 @@
 # ECL upstream trace
 
-Status: incomplete historical invocation provenance, not a reproduction pass.
+Status update: original host 15096 reopened in CPU-only mode. Original CB/PRE
+and ECL-192 FT checkpoint args have now been recovered. See
+`../electricity/PROVENANCE.md`. The notes below document the earlier search,
+not the current unresolved status. Numerical reproduction remains pending.
 
 ## Exact result anchor
 

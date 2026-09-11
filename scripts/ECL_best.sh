@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
-# Historical best configuration index; scratch reproduction is not verified.
+# Full codebook -> pretraining -> fine-tuning -> test. Numeric verification pending.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ "${TD_STAGE:-}" != finetune ]; then
-  echo "Historical best from-scratch provenance is incomplete for electricity." >&2
-  echo "For checkpoint-based fine-tuning only: TD_STAGE=finetune HORIZONS=96 bash scripts/ECL_best.sh" >&2
-  exit 2
-fi
 HORIZONS="${HORIZONS:-96 192 336 720}"
 HORIZONS="${HORIZONS//,/ }"
 for horizon in $HORIZONS; do
@@ -14,5 +9,5 @@ for horizon in $HORIZONS; do
   test -f "$SCRIPT_DIR/best_configs/electricity/h$horizon.sh" || { echo "Missing verified parameters: electricity-$horizon" >&2; exit 2; }
 done
 for horizon in $HORIZONS; do
-  bash "$SCRIPT_DIR/best_configs/electricity/h$horizon.sh"
+  bash "$SCRIPT_DIR/best_configs/electricity/from_scratch.sh" "$horizon"
 done

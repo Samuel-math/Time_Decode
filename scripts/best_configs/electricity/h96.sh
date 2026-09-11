@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
-root=search_electricity_96_fixed96_r3
+root="${TD_FINETUNE_ROOT:-search_electricity_96_fixed96_r3}"
 mkdir -p "$root"
 pre="${PRETRAINED_MODEL:-decoder_only_NTP/saved_models/patch_vqvae/electricity_freq_m321_base1_20260831_020025/electricity/patch_vqvae_ps4_cb256_cd128_l3_in128_step6_model1_rvq2_timefilterlitek128_snk20a0p5t1p0_grp0.pth}"
 if [ ! -f "$pre" ]; then echo "Missing historical checkpoint: $pre" >&2; exit 2; fi
