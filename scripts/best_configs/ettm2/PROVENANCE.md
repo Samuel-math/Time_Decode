@@ -10,4 +10,6 @@ The same supervisor log links the second profile to `ettm2_sota_tuned_20260901_0
 
 Subsequent expert pretraining for the retained 96/336 fine-tuning results is separately recorded in `run_ettm2_expert_pretrain_fixed96_r15.sh` and the running command at 2026-09-04 19:35:10 UTC: experts 4 x 32, batch 128, context 336, and the first run's codebook. Retained 192 uses the first no-expert pretrained model; retained 720 uses the second no-expert pretrained model.
 
-This closes the previously reported primary codebook and base-pretraining provenance gaps. It does not establish numerical reproduction from scratch; the scratch entry still needs to be assembled and rerun.
+This closes the previously reported primary codebook and base-pretraining provenance gaps. The complete scratch entry is now assembled in `scripts/ettm2_best.sh` and `from_scratch.sh`. Each horizon uses a unique output directory and only newly generated stage checkpoints. Historical references are 96: 0.168354/0.245924; 192: 0.239478/0.294299; 336: 0.296795/0.327299; 720: 0.403429/0.398645 (MSE/MAE). The 96/336 branches are recovery_r16/e4d32; 192 is full_r1/h192_s8; 720 is 720_r5/c96d12t7.
+
+Shell syntax, Python parser flag names and all four three-stage dependency chains were checked with an isolated test double. All 12 stage calls fixed seed 42; all fine-tuning contexts were 96; an injected historical PRETRAINED_MODEL path was ignored by the scratch entry. This checks script wiring only, not numerical reproduction. Actual retraining and metric comparison remain pending.

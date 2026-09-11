@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Historical fine-tuning configuration only. Full retraining provenance is pending.
+# Matched best fine-tuning stage; called with this run's pretrained checkpoint.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-root=search_ettm2_720_r5
+root="${TD_FINETUNE_ROOT:-search_ettm2_720_r5}"
 mkdir -p "$root"
 pre="${PRETRAINED_MODEL:-decoder_only_NTP/saved_models/patch_vqvae/ettm2_sota_tuned_20260901_055045/ettm2/patch_vqvae_ps8_cb256_cd128_l3_in672_step6_model1_rvq2_grp0.pth}"
 if [ ! -f "$pre" ]; then echo "Missing historical checkpoint: $pre" >&2; exit 2; fi

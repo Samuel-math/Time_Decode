@@ -5,7 +5,7 @@ Configurations are grouped by dataset and forecast horizon. All retained forecas
 | Dataset | Entry | Current status |
 |---|---|---|
 | ETTm1 | `scripts/ettm1_best.sh` | Full-pipeline candidates; fresh-environment reproduction queued |
-| ETTm2 | `scripts/ettm2_best.sh` | Historical checkpoint-based fine-tuning parameters; complete pretraining provenance pending |
+| ETTm2 | `scripts/ettm2_best.sh` | Matched codebook/pretraining launch records and retained best fine-tuning branches; complete scratch entry assembled, numeric reproduction pending |
 | ETTh1 | `scripts/etth1_best.sh` | Full-pipeline candidates; 96 reproduction queued |
 | ETTh2 | `scripts/etth2_best.sh` | Recovered full-pipeline candidate; 96 includes fresh base fine-tuning before residual training; numerical reproduction pending |
 | Weather | `scripts/weather_best.sh` | Recovered full-pipeline candidate; fresh rerun pending, see weather/PROVENANCE.md |

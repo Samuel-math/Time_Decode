@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Historical fine-tuning configuration only. Full retraining provenance is pending.
+# Matched best fine-tuning stage; called with this run's pretrained checkpoint.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
-root=search_ettm2_fixed96_recovery_r16
+root="${TD_FINETUNE_ROOT:-search_ettm2_fixed96_recovery_r16}"
 mkdir -p "$root"
 run_one(){
  local h=$1 tag=$2 experts=$3 dim=$4
- local pre=search_ettm2_expert_pretrain_fixed96_r15/$tag/ettm2/patch_vqvae_ps8_cb256_cd128_l3_in336_step6_model1_rvq2_dlp_timefilterlitek4_grp0.pth
+ local pre="${PRETRAINED_MODEL:-search_ettm2_expert_pretrain_fixed96_r15/$tag/ettm2/patch_vqvae_ps8_cb256_cd128_l3_in336_step6_model1_rvq2_dlp_timefilterlitek4_grp0.pth}"
+ test -f "$pre"
  local step=6 pred=12 lr=1.02e-5 delta=.55; [ "$h" = 336 ] && step=10 && pred=10 && lr=1e-5 && delta=.074
  python decoder_only_NTP/patch_vqvae_finetune.py --dset ettm2 --context_points 96 --target_points "$h" --batch_size 128 --num_workers 0 \
   --scaler standard --features M --channel_indices 2,5,6,4,0,3,1 --channel_group_id 0 --pretrained_model "$pre" --n_epochs 50 \

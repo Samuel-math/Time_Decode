@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Historical fine-tuning configuration only. Full retraining provenance is pending.
+# Matched best fine-tuning stage; called with this run's pretrained checkpoint.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
-root=search_ettm2_full_r1
+root="${TD_FINETUNE_ROOT:-search_ettm2_full_r1}"
 mkdir -p "$root"
-pre_short=decoder_only_NTP/saved_models/patch_vqvae/ettm2_sota_tuned_20260901_051444/ettm2/patch_vqvae_ps8_cb256_cd128_l3_in336_step6_model1_rvq2_dlp_timefilterlitek4_grp0.pth
+pre_short="${PRETRAINED_MODEL:-decoder_only_NTP/saved_models/patch_vqvae/ettm2_sota_tuned_20260901_051444/ettm2/patch_vqvae_ps8_cb256_cd128_l3_in336_step6_model1_rvq2_dlp_timefilterlitek4_grp0.pth}"
+test -f "$pre_short"
 pre_long=decoder_only_NTP/saved_models/patch_vqvae/ettm2_sota_tuned_20260901_055045/ettm2/patch_vqvae_ps8_cb256_cd128_l3_in672_step6_model1_rvq2_grp0.pth
 run_one() {
   local h=$1 delta=$2 lr=$3 step=$4 pred=$5 loss=$6 mw=$7 name=$8 pre=$9
